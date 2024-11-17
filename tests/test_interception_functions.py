@@ -1,6 +1,6 @@
 import pytest
 
-from intercept import intercept_method
+from intercept import intercept_method, intercept_methods, get_methods, InterceptionError
 from tests.conftest import METHODS, DummyTarget
 
 
@@ -28,3 +28,29 @@ def test_intercept_method(method: str, blocking: bool):
         assert m(1, b=2) is None
 
     assert intercepted
+
+
+def test_intercept_method_raises_on_non_existing_method():
+    target = DummyTarget()
+    with pytest.raises(InterceptionError, match="Target object does not have a method 'foo_bar'."):
+        intercept_method(target, "foo_bar", lambda a, b, c: None, blocking=False)
+
+
+def test_intercept_methods():
+    called_methods = set()
+
+    def _interception(name: str, *args, **kwargs):
+        nonlocal called_methods
+        called_methods.add(name)
+        assert args[0] == 1
+        assert kwargs["b"] == 2
+
+    target = DummyTarget()
+    intercept_methods(target, get_methods(target), _interception, True)
+
+    # Call all methods
+    for method in get_methods(target):
+        getattr(target, method)(1, b=2)
+
+    # Ensure all methods were intercepted
+    assert called_methods == METHODS

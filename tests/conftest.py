@@ -1,14 +1,10 @@
-from typing import Type
-
-import pytest
-
-METHODS = [
+METHODS = {
     "public_method",
     "_protected_method",
     "_DummyTarget__private_method",
     "static_method",
     "class_method"
-]
+}
 
 
 class DummyTarget:
@@ -28,4 +24,3 @@ class DummyTarget:
     @classmethod
     def class_method(cls, a: int, b: int):
         return a + b
-
