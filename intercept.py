@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 from inspect import getmembers, isfunction, ismethod
-from typing import Callable, Set
+from typing import Callable, Set, Any, Optional
 
 
 class InterceptionError(Exception):
@@ -19,11 +20,19 @@ def get_methods(target: object) -> Set[str]:
     return set(map(lambda m: m[0], methods))
 
 
-def intercept_method(target: object, name: str, inject: Callable[..., None], blocking: bool) -> None:
+@dataclass
+class InterceptInfo:
+    name: str
+    blocking: bool
+    ret_value: Optional[Any] = None
+    exception: Optional[BaseException] = None
+
+
+def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo, ...], Any], blocking: bool) -> None:
     """
     Intercepts a given target's method.
     This function wraps the target method and injects a given function.
-    The injected function is called before (non-blocking mode) the target's original method or instead of it
+    The injected function is called after (non-blocking mode) the target's original method or instead of it
     (blocking mode).
 
     :param target: The target object.
@@ -35,16 +44,34 @@ def intercept_method(target: object, name: str, inject: Callable[..., None], blo
     :return: None
     """
     try:
+        # Get the target's method by name
         fn = getattr(target, name)
     except AttributeError:
         raise InterceptionError(f"Target object does not have a method '{name}'.")
 
     def intercept(*args, **kwargs):
-        inject(name, *args, **kwargs)
+        # In block-mode: Directly call the injection function
         if blocking:
-            return None
-        return fn(*args, **kwargs)
+            return inject(InterceptInfo(name, True), *args, **kwargs)
 
+        # In non-blocking mode: Call the target's method and store it's return value or occurring exceptions
+        exception = None
+        result = None
+        try:
+            result = fn(*args, **kwargs)
+        except BaseException as e:
+            exception = e
+        finally:
+            inject(InterceptInfo(name, False, result, exception), *args, **kwargs)
+
+        # If an exception was raised inside the target's method: re-raise it after injection call
+        if exception:
+            raise exception
+
+        # Last step: return the target's method result
+        return result
+
+    # Replace the target's method by intercept function
     setattr(target, name, intercept)
 
 

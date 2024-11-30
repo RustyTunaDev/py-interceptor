@@ -1,6 +1,6 @@
 import pytest
 
-from intercept import intercept_method, intercept_methods, get_methods, InterceptionError
+from intercept import intercept_method, intercept_methods, get_methods, InterceptionError, InterceptInfo
 from tests.conftest import METHODS, DummyTarget
 
 
@@ -9,15 +9,18 @@ from tests.conftest import METHODS, DummyTarget
 def test_intercept_method(method: str, blocking: bool):
     intercepted = False
 
-    def _interception(name: str, *args, **kwargs):
+    def _intercept(info: InterceptInfo, *args, **kwargs):
         nonlocal intercepted
         intercepted = True
-        assert name == method
+        assert info.name == method
+        assert info.blocking == blocking
+        assert info.ret_value == (3 if not blocking else None)
         assert args[0] == 1
         assert kwargs["b"] == 2
+        return "foo"
 
     target = DummyTarget()
-    intercept_method(target, method, _interception, blocking=blocking)
+    intercept_method(target, method, _intercept, blocking=blocking)
     m = getattr(target, method)
 
     # If we use non-blocking mode we expect our function to be executed and thus, deliver the correct result
@@ -25,7 +28,7 @@ def test_intercept_method(method: str, blocking: bool):
         assert m(1, b=2) == 3
     # Otherwise, if blocking-mode is active, our method should be intercepted but not executed
     else:
-        assert m(1, b=2) is None
+        assert m(1, b=2) == "foo"
 
     assert intercepted
 
@@ -39,14 +42,12 @@ def test_intercept_method_raises_on_non_existing_method():
 def test_intercept_methods():
     called_methods = set()
 
-    def _interception(name: str, *args, **kwargs):
+    def _intercept(info: InterceptInfo, *_args, **__kwargs):
         nonlocal called_methods
-        called_methods.add(name)
-        assert args[0] == 1
-        assert kwargs["b"] == 2
+        called_methods.add(info.name)
 
     target = DummyTarget()
-    intercept_methods(target, get_methods(target), _interception, True)
+    intercept_methods(target, get_methods(target), _intercept, True)
 
     # Call all methods
     for method in get_methods(target):
@@ -54,3 +55,24 @@ def test_intercept_methods():
 
     # Ensure all methods were intercepted
     assert called_methods == METHODS
+
+
+def test_intercept_stores_and_reraises_exceptions():
+    class ErrorTarget:
+        def foo(self, a, b):
+            1 // 0
+
+    intercepted = False
+
+    def _intercept(info: InterceptInfo, *_args, **__kwargs):
+        nonlocal intercepted
+        intercepted = True
+        assert isinstance(info.exception, ZeroDivisionError)
+
+    target = ErrorTarget()
+    intercept_method(target, "foo", _intercept, blocking=False)
+
+    with pytest.raises(ZeroDivisionError):
+        target.foo(1, b=2)
+
+    assert intercepted
