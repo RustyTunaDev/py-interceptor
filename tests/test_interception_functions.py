@@ -9,14 +9,14 @@ from tests.conftest import METHODS, DummyTarget
 def test_intercept_method(method: str, blocking: bool):
     intercepted = False
 
-    def _intercept(info: InterceptInfo, *args, **kwargs):
+    def _intercept(info: InterceptInfo):
         nonlocal intercepted
         intercepted = True
         assert info.name == method
         assert info.blocking == blocking
         assert info.ret_value == (3 if not blocking else None)
-        assert args[0] == 1
-        assert kwargs["b"] == 2
+        assert info.args[0] == 1
+        assert info.kwargs["b"] == 2
         return "foo"
 
     target = DummyTarget()
@@ -36,13 +36,13 @@ def test_intercept_method(method: str, blocking: bool):
 def test_intercept_method_raises_on_non_existing_method():
     target = DummyTarget()
     with pytest.raises(InterceptionError, match="Target object does not have a method 'foo_bar'."):
-        intercept_method(target, "foo_bar", lambda a, b, c: None, blocking=False)
+        intercept_method(target, "foo_bar", lambda info: None, blocking=False)
 
 
 def test_intercept_methods():
     called_methods = set()
 
-    def _intercept(info: InterceptInfo, *_args, **__kwargs):
+    def _intercept(info: InterceptInfo):
         nonlocal called_methods
         called_methods.add(info.name)
 
@@ -64,7 +64,7 @@ def test_intercept_stores_and_reraises_exceptions():
 
     intercepted = False
 
-    def _intercept(info: InterceptInfo, *_args, **__kwargs):
+    def _intercept(info: InterceptInfo):
         nonlocal intercepted
         intercepted = True
         assert isinstance(info.exception, ZeroDivisionError)

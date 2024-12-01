@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from inspect import getmembers, isfunction, ismethod
-from typing import Callable, Set, Any, Optional
+from typing import Callable, Set, Any, Optional, Dict, Tuple
 
 
 class InterceptionError(Exception):
@@ -24,11 +24,13 @@ def get_methods(target: object) -> Set[str]:
 class InterceptInfo:
     name: str
     blocking: bool
+    args: Tuple
+    kwargs: Dict
     ret_value: Optional[Any] = None
     exception: Optional[BaseException] = None
 
 
-def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo, ...], Any], blocking: bool) -> None:
+def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo], Any], blocking: bool) -> None:
     """
     Intercepts a given target's method.
     This function wraps the target method and injects a given function.
@@ -52,7 +54,7 @@ def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo,
     def intercept(*args, **kwargs):
         # In block-mode: Directly call the injection function
         if blocking:
-            return inject(InterceptInfo(name, True), *args, **kwargs)
+            return inject(InterceptInfo(name, True, args, kwargs))
 
         # In non-blocking mode: Call the target's method and store it's return value or occurring exceptions
         exception = None
@@ -62,7 +64,15 @@ def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo,
         except BaseException as e:
             exception = e
         finally:
-            inject(InterceptInfo(name, False, result, exception), *args, **kwargs)
+            """
+            name: str
+    blocking: bool
+    args: List[Any]
+    kwargs: Dict[Any, Any]
+    ret_value: Optional[Any] = None
+    exception: Optional[BaseException] = None
+            """
+            inject(InterceptInfo(name, False, args, kwargs, result, exception))
 
         # If an exception was raised inside the target's method: re-raise it after injection call
         if exception:
@@ -75,7 +85,7 @@ def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo,
     setattr(target, name, intercept)
 
 
-def intercept_methods(target: object, names: Set[str], inject: Callable[..., None], blocking: bool) -> None:
+def intercept_methods(target: object, names: Set[str], inject: Callable[[InterceptInfo], None], blocking: bool) -> None:
     """
     Intercepts a given target's methods.
     This function wraps the target methods and injects a given function.
