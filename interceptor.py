@@ -1,6 +1,8 @@
+import time
 from dataclasses import dataclass
+from functools import singledispatch
 from inspect import getmembers, isfunction, ismethod
-from typing import Callable, Set, Any, Optional, Dict, Tuple
+from typing import Callable, Set, Any, Optional, Dict, Tuple, Union
 
 
 class InterceptionError(Exception):
@@ -28,9 +30,21 @@ class InterceptInfo:
     kwargs: Dict
     ret_value: Optional[Any] = None
     exception: Optional[BaseException] = None
+    timestamp: Optional[int] = None
+
+    def __post_init__(self):
+        if self.timestamp is None:
+            self.timestamp = time.time_ns()
 
 
-def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo], Any], blocking: bool) -> None:
+@singledispatch
+def intercept(methods: Union[str, Set[str]], target: object, inject: Callable[[InterceptInfo], Any],
+              blocking: bool) -> None:
+    raise NotImplementedError(f"intercept is not implemented for {type(methods)}")
+
+
+@intercept.register
+def intercept_single(methods: str, target: object, inject: Callable[[InterceptInfo], Any], blocking: bool) -> None:
     """
     Intercepts a given target's method.
     This function wraps the target method and injects a given function.
@@ -38,7 +52,7 @@ def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo]
     (blocking mode).
 
     :param target: The target object.
-    :param name: The name of the method to be intercepted.
+    :param methods: The name of the method to be intercepted.
     :param inject: The injection function.
     :param blocking: If true, the target's original method does not get called (it gets blocked), otherwise it gets
     executed after the injected function.
@@ -47,58 +61,37 @@ def intercept_method(target: object, name: str, inject: Callable[[InterceptInfo]
     """
     try:
         # Get the target's method by name
-        fn = getattr(target, name)
+        fn = getattr(target, methods)
     except AttributeError:
-        raise InterceptionError(f"Target object does not have a method '{name}'.")
+        raise InterceptionError(f"Target object does not have a method '{methods}'.")
 
-    def intercept(*args, **kwargs):
+    def _intercept_method(*args, **kwargs):
         # In block-mode: Directly call the injection function
         if blocking:
-            return inject(InterceptInfo(name, True, args, kwargs))
+            return inject(InterceptInfo(methods, True, args, kwargs))
 
         # In non-blocking mode: Call the target's method and store it's return value or occurring exceptions
-        exception = None
-        result = None
+        info = InterceptInfo(methods, False, args, kwargs)
         try:
-            result = fn(*args, **kwargs)
+            info.ret_value = fn(*args, **kwargs)
         except BaseException as e:
-            exception = e
+            info.exception = e
         finally:
-            """
-            name: str
-    blocking: bool
-    args: List[Any]
-    kwargs: Dict[Any, Any]
-    ret_value: Optional[Any] = None
-    exception: Optional[BaseException] = None
-            """
-            inject(InterceptInfo(name, False, args, kwargs, result, exception))
+            inject(info)
 
         # If an exception was raised inside the target's method: re-raise it after injection call
-        if exception:
-            raise exception
+        if info.exception:
+            raise info.exception
 
         # Last step: return the target's method result
-        return result
+        return info.ret_value
 
     # Replace the target's method by intercept function
-    setattr(target, name, intercept)
+    setattr(target, methods, _intercept_method)
 
 
-def intercept_methods(target: object, names: Set[str], inject: Callable[[InterceptInfo], None], blocking: bool) -> None:
-    """
-    Intercepts a given target's methods.
-    This function wraps the target methods and injects a given function.
-    The injected function is called before (non-blocking mode) the target's original methods or instead of them
-    (blocking mode).
-
-    :param target: The target object.
-    :param names: The names of the methods to be intercepted.
-    :param inject: The injection function.
-    :param blocking: If true, the target's original method does not get called (it gets blocked), otherwise it gets
-    executed after the injected function.
-    :raises InterceptionError: If an interception error occurs.
-    :return: None
-    """
-    for name in names:
-        intercept_method(target, name, inject, blocking)
+@intercept.register
+def intercept_multiple(methods: set, target: object, inject: Callable[[InterceptInfo], Any],
+                       blocking: bool) -> None:
+    for name in methods:
+        intercept_single(name, target, inject, blocking)
