@@ -72,4 +72,4 @@ if __name__ == '__main__':
 
     # Execute processor methods and save logs
     print(processor.calc_variance(4, 2))
-    logger.save_as_json(Path("../logs.json"))
+    logger.save_as_json(Path("logs.json"))
