@@ -12,7 +12,7 @@ This is especially useful for:
 - Logging
 - Creating call statistics, etc.
 
-PyInterceptor enables exactly this - it installs a handler function into a target object that intercepts specified
+PyInterceptor enables exactly this - it installs a handler function into a target object that intercepts
 methods and stores (meta-) data about the calls in `CallInfo` objects. These objects are then handed over to a
 user-defined `interceptor` callable.
 
@@ -21,8 +21,8 @@ user-defined `interceptor` callable.
 PyInterceptor distinguishes between 2 modi:
 
 - blocking mode: In this mode the handler does not execute the actual method and returns the return value from the
-  `interceptor`. This mode is very useful when creating mocks or stubs.
-- non-blocking mode: In this mode the handler executed the actual method and forwards its return value to the
+  `interceptor` callable. This mode is very useful when creating mocks or stubs.
+- non-blocking mode: In this mode the handler executes the actual method and forwards its return value to the
   `interceptor` callable. Then it continues like in the blocking mode.
 
 ## Installation
@@ -37,7 +37,6 @@ To install PyInterceptor from source, do the following steps:
     - `env\Scripts\activate` (windows)
     - `source env/bin/activate` (linux)
 2. Install the package from source
-    - `cd py-interceptor`
     - `pip install -e .` (without dev dependencies)
     - `pip install -e .[dev]` (with dev dependencies)
 3. Execute unit tests (requires dev dependencies)
@@ -48,7 +47,7 @@ To install PyInterceptor from source, do the following steps:
 The following example demonstrates how easy it is to intercept an object's method. Here we want to print the name of the
 executed API method together with the args and the return value:
 
-```
+```python
 from interceptor import CallInfo, intercept
 
 
@@ -67,4 +66,7 @@ The output should be:
 `Executed add with args (1, 2) -> returned 3`
 
 More example can be found in the [examples](examples) folder.
+
+## API Documentation
+*To be done*
 
