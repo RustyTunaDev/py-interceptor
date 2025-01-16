@@ -2,7 +2,7 @@ import http.client
 import json
 from typing import Dict, Optional
 
-from src.interceptor.interceptor import intercept, CallInfo
+from interceptor import intercept, CallInfo
 
 
 class RestClient:

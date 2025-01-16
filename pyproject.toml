@@ -1,9 +1,9 @@
 [project]
 name = "py-interceptor"
-version = "0.0.1"
-description = 'A software for acquiring and processing (structured light) image data from the Pillar III sensor.'
+version = "0.1.0"
+description = 'A library for intercepting and processing Python method calls.'
 readme = "README.md"
-requires-python = ">=3.0"
+requires-python = ">=3.9"
 keywords = ["mocking", "testing"]
 authors = [
     { name = "RustyTuna", email = "prototype4711@gmail.com" }
