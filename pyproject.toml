@@ -1,0 +1,36 @@
+[project]
+name = "py-interceptor"
+version = "0.0.1"
+description = 'A software for acquiring and processing (structured light) image data from the Pillar III sensor.'
+readme = "README.md"
+requires-python = ">=3.0"
+keywords = ["mocking", "testing"]
+authors = [
+    { name = "RustyTuna", email = "prototype4711@gmail.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Documentation = "https://github.com/RustyTunaDev/py-interceptor#readme"
+Issues = "https://github.com/RustyTunaDev/py-interceptor#readme/-/issues"
+Source = "https://github.com/RustyTunaDev/py-interceptor#readme/src"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "build"
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    "src"
+]

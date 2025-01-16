@@ -1,89 +1,82 @@
 import pytest
 
-from interceptor import intercept, get_methods, InterceptionError, InterceptInfo
+from src.interceptor.interceptor import intercept, get_methods, InterceptionError, CallInfo
 from tests.conftest import METHODS, DummyTarget
 
 
-@pytest.mark.parametrize('method', METHODS)
-@pytest.mark.parametrize('blocking', [True, False])
-def test_intercept_single_method(method: str, blocking: bool):
+class TestInterceptionFunctions:
     intercepted = False
-
-    def _intercept(info: InterceptInfo):
-        nonlocal intercepted
-        intercepted = True
-        assert info.name == method
-        assert info.blocking == blocking
-        assert info.ret_value == (3 if not blocking else None)
-        assert info.args[0] == 1
-        assert info.kwargs["b"] == 2
-        return "foo"
-
-    target = DummyTarget()
-    intercept(method, target, _intercept, blocking=blocking)
-    m = getattr(target, method)
-
-    # If we use non-blocking mode we expect our function to be executed and thus, deliver the correct result
-    if not blocking:
-        assert m(1, b=2) == 3
-    # Otherwise, if blocking-mode is active, our method should be intercepted but not executed
-    else:
-        assert m(1, b=2) == "foo"
-
-    assert intercepted
-
-
-def test_intercept_a_set_of_methods():
     called_methods = set()
 
-    def _intercept(info: InterceptInfo):
-        nonlocal called_methods
-        called_methods.add(info.name)
+    @pytest.mark.parametrize('method', METHODS)
+    @pytest.mark.parametrize('blocking', [True, False])
+    def test_intercept_single_method(self, method: str, blocking: bool):
 
-    target = DummyTarget()
-    intercept(get_methods(target), target, _intercept, True)
+        def _intercept(info: CallInfo):
+            self.intercepted = True
+            assert info.name == method
+            assert info.blocking == blocking
+            assert info.ret_value == (3 if not blocking else None)
+            assert info.args[0] == 1
+            assert info.kwargs["b"] == 2
+            assert info.target == DummyTarget
+            return "foo"
 
-    # Call all methods
-    for method in get_methods(target):
-        getattr(target, method)(1, b=2)
+        target = DummyTarget()
+        intercept(method, target, _intercept, blocking=blocking)
+        m = getattr(target, method)
 
-    # Ensure all methods were intercepted
-    assert called_methods == METHODS
+        # If we use non-blocking mode we expect our function to be executed and thus, deliver the correct result
+        if not blocking:
+            assert m(1, b=2) == 3
+        # Otherwise, if blocking-mode is active, our method should be intercepted but not executed
+        else:
+            assert m(1, b=2) == "foo"
 
+        assert self.intercepted
 
-def test_intercept_raises_on_unsupported_methods_type():
-    target = DummyTarget()
-    with pytest.raises(NotImplementedError, match="intercept is not implemented for <class 'int'>"):
-        intercept(123, target, lambda info: None, blocking=False)
+    def test_intercept_a_set_of_methods(self):
 
+        def _intercept(info: CallInfo):
+            self.called_methods.add(info.name)
 
-def test_intercept_raises_on_non_existing_method():
-    target = DummyTarget()
-    with pytest.raises(InterceptionError, match="Target object does not have a method 'foo_bar'."):
-        intercept("foo_bar", target, lambda info: None, blocking=False)
+        target = DummyTarget()
+        intercept(get_methods(target), target, _intercept, True)
 
+        # Call all methods
+        for method in get_methods(target):
+            getattr(target, method)(1, b=2)
 
-def test_intercept_stores_and_reraises_exceptions():
-    class ErrorTarget:
-        def foo(self, a, b):
-            1 // 0
+        # Ensure all methods were intercepted
+        assert self.called_methods == METHODS
 
-    intercepted = False
+    def test_intercept_raises_on_unsupported_methods_type(self):
+        target = DummyTarget()
+        with pytest.raises(NotImplementedError, match="intercept is not implemented for <class 'int'>"):
+            intercept(123, target, lambda info: None, blocking=False)
 
-    def _intercept(info: InterceptInfo):
-        nonlocal intercepted
-        intercepted = True
-        assert isinstance(info.exception, ZeroDivisionError)
+    def test_intercept_raises_on_non_existing_method(self):
+        target = DummyTarget()
+        with pytest.raises(InterceptionError, match="Target object does not have a method 'foo_bar'."):
+            intercept("foo_bar", target, lambda info: None, blocking=False)
 
-    target = ErrorTarget()
-    intercept("foo", target, _intercept, blocking=False)
+    def test_intercept_stores_and_reraises_exceptions(self):
+        class ErrorTarget:
+            def foo(self, a, b):
+                1 // 0
 
-    with pytest.raises(ZeroDivisionError):
-        target.foo(1, b=2)
+        def _intercept(info: CallInfo):
+            self.intercepted = True
+            assert isinstance(info.exception, ZeroDivisionError)
 
-    assert intercepted
+        target = ErrorTarget()
+        intercept("foo", target, _intercept, blocking=False)
 
+        with pytest.raises(ZeroDivisionError):
+            target.foo(1, b=2)
 
-@pytest.mark.parametrize('target', [DummyTarget, DummyTarget()])
-def test_get_methods_from_class_and_instance(target: object):
-    assert get_methods(target) == set(METHODS)
+        assert self.intercepted
+
+    @pytest.mark.parametrize('target', [DummyTarget, DummyTarget()])
+    def test_get_methods_from_class_and_instance(self, target: object):
+        assert get_methods(target) == set(METHODS)

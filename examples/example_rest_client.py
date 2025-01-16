@@ -2,7 +2,7 @@ import http.client
 import json
 from typing import Dict, Optional
 
-from interceptor import intercept, InterceptInfo
+from src.interceptor.interceptor import intercept, CallInfo
 
 
 class RestClient:
@@ -38,7 +38,7 @@ class Interceptor:
     def __init__(self):
         self._logs = []
 
-    def __call__(self, info: InterceptInfo):
+    def __call__(self, info: CallInfo):
         self._logs.append(info)
         ret_maps = {
             "POST": {"status_code": "created"},
@@ -50,7 +50,7 @@ class Interceptor:
             return ret_maps[info.args[0]]
 
     def print_logs(self):
-        self._logs.sort(key=lambda log: log.timestamp)
+        self._logs.sort(key=lambda log: log.timestamp_ns)
         for log in self._logs:
             print(log)
 
