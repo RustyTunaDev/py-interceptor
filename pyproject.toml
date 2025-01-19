@@ -21,8 +21,8 @@ build-backend = "setuptools.build_meta"
 
 [project.urls]
 Documentation = "https://github.com/RustyTunaDev/py-interceptor#readme"
-Issues = "https://github.com/RustyTunaDev/py-interceptor#readme/-/issues"
-Source = "https://github.com/RustyTunaDev/py-interceptor#readme/src"
+Issues = "https://github.com/RustyTunaDev/py-interceptor/issues"
+Source = "https://github.com/RustyTunaDev/py-interceptor"
 
 [project.optional-dependencies]
 dev = [
